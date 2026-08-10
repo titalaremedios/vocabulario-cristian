@@ -1,9 +1,8 @@
-# Vocabulario Policía Madrid — Cristian v3
+# Vocabulario Policía Madrid — Cristian v4
 
-Versión con el material de estudio de Cristian integrado.
-
-- 923 palabras totales
-- 692 palabras únicas del documento de Cristian
-- 142 analogías del documento
-- El material de Cristian tiene prioridad en sesiones nuevas
-- Progreso guardado en el navegador
+Cambios:
+- Sesión recomendada de 12 palabras.
+- Ya no se muestran cientos de palabras “para hoy”.
+- Al terminar un bloque, se puede continuar con 12, 25 o 50 palabras.
+- El estudio sigue siendo ilimitado por bloques.
+- Se mantiene el progreso guardado en el navegador.

@@ -31,7 +31,7 @@ h1{font-size:26px;margin:8px 0} h2{margin:4px 0 12px} p{color:var(--muted);line-
     <h1>Hola, Cristian</h1>
     <p id="homeText"></p>
     <div class="stats">
-      <div class="stat"><b id="due">0</b><span>para hoy</span></div>
+      <div class="stat"><b id="due">12</b><span>sesión recomendada</span></div>
       <div class="stat"><b id="hard">0</b><span>difíciles</span></div>
       <div class="stat"><b id="mastered">0</b><span>dominadas</span></div>
     </div>
@@ -101,6 +101,22 @@ h1{font-size:26px;margin:8px 0} h2{margin:4px 0 12px} p{color:var(--muted);line-
   </div>
   <div class="card"><h2>Más falladas</h2><div id="hardList" class="list"></div></div>
 </section>
+
+<section id="continueStudy" class="screen">
+  <button class="nav" onclick="goHome()">← Volver al inicio</button>
+  <div class="card">
+    <span class="badge">Bloque completado</span>
+    <h2>¿Quieres seguir estudiando?</h2>
+    <p>Has terminado este bloque. Puedes parar aquí o continuar con otro bloque del tamaño que prefieras.</p>
+    <button class="primary" onclick="startStudyBlock(12)">Seguir con 12</button>
+    <div class="row2">
+      <button class="ghost" onclick="startStudyBlock(25)">Seguir con 25</button>
+      <button class="ghost" onclick="startStudyBlock(50)">Seguir con 50</button>
+    </div>
+    <button class="ghost" onclick="goHome()">Terminar por hoy</button>
+  </div>
+</section>
+
 </div>
 
 <script>
@@ -117,19 +133,69 @@ let state=load(); function save(){localStorage.setItem(KEY,JSON.stringify(state)
 function sh(a){return [...a].sort(()=>Math.random()-.5)} function show(id){document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");window.scrollTo(0,0)}
 function goHome(){renderHome();show("home")}
 function metrics(){const a=Object.values(state.words),now=Date.now();return{due:a.filter(x=>x.next<=now).length,hard:a.filter(x=>x.status==="hard").length,mastered:a.filter(x=>x.status==="mastered").length,learning:a.filter(x=>x.status==="learning").length}}
-function renderHome(){const m=metrics();due.textContent=m.due;hard.textContent=m.hard;mastered.textContent=m.mastered;homeText.textContent=`Tu banco incluye ${WORDS.length} palabras. El material que ya has estudiado tiene prioridad en los repasos.`;date.textContent=new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"short"})}
+function renderHome(){
+  const m=metrics();
+  due.textContent="12";
+  hard.textContent=m.hard;
+  mastered.textContent=m.mastered;
+  homeText.textContent=`Tu banco incluye ${WORDS.length} palabras. Empieza con 12 en la sesión recomendada y, si quieres, continúa con más bloques.`;
+  date.textContent=new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"short"});
+} palabras. El material que ya has estudiado tiene prioridad en los repasos.`;date.textContent=new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"short"})}
 let queue=[],idx=0,current=null;
-function buildQueue(){
- const now=Date.now();
- const doc=WORDS.filter(w=>w.source==="Material de Cristian"&&state.words[w.id].status==="new");
- const due=WORDS.filter(w=>state.words[w.id].status!=="new"&&state.words[w.id].next<=now).sort((a,b)=>state.words[a.id].next-state.words[b.id].next).slice(0,20);
- const hard=WORDS.filter(w=>state.words[w.id].status==="hard"&&!due.some(d=>d.id===w.id)).sort((a,b)=>state.words[b.id].fail-state.words[a.id].fail).slice(0,8);
- const fresh=doc.slice(0,12);
- return [...due.map(w=>({...w,kind:"Repaso"})),...hard.map(w=>({...w,kind:"Difícil"})),...fresh.map(w=>({...w,kind:w.important?"Importante":"Nueva"}))];
+function startStudyBlock(size){
+  queue=buildQueue(size);
+  if(!queue.length){
+    queue=WORDS.filter(w=>state.words[w.id].status!=="mastered").slice(0,size).map(w=>({...w,kind:"Nueva"}));
+  }
+  if(!queue.length){
+    alert("No quedan palabras pendientes en este momento.");
+    goHome();
+    return;
+  }
+  idx=0;
+  show("study");
+  loadCard();
 }
-function startDaily(){queue=buildQueue();if(!queue.length)queue=WORDS.filter(w=>state.words[w.id].status!=="mastered").slice(0,12).map(w=>({...w,kind:"Nueva"}));idx=0;show("study");loadCard()}
+function showContinueOptions(){
+  show("continueStudy");
+}
+function buildQueue(limit=12){
+ const now=Date.now();
+ const dueWords=WORDS
+   .filter(w=>state.words[w.id].status!=="new"&&state.words[w.id].next<=now)
+   .sort((a,b)=>state.words[a.id].next-state.words[b.id].next);
+
+ const hardWords=WORDS
+   .filter(w=>state.words[w.id].status==="hard"&&!dueWords.some(d=>d.id===w.id))
+   .sort((a,b)=>state.words[b.id].fail-state.words[a.id].fail);
+
+ const newCristian=WORDS.filter(w=>w.source==="Material de Cristian"&&state.words[w.id].status==="new");
+ const newOther=WORDS.filter(w=>w.source!=="Material de Cristian"&&state.words[w.id].status==="new");
+
+ const merged=[
+   ...dueWords.map(w=>({...w,kind:"Repaso"})),
+   ...hardWords.map(w=>({...w,kind:"Difícil"})),
+   ...newCristian.map(w=>({...w,kind:w.important?"Importante":"Nueva"})),
+   ...newOther.map(w=>({...w,kind:"Nueva"}))
+ ];
+
+ const seen=new Set(), out=[];
+ for(const w of merged){
+   if(!seen.has(w.id)){
+     out.push(w);
+     seen.add(w.id);
+   }
+   if(out.length>=limit) break;
+ }
+ return out;
+}
+function startDaily(){startStudyBlock(12)}
 function startFailures(){queue=WORDS.filter(w=>state.words[w.id].fail>0).sort((a,b)=>state.words[b.id].fail-state.words[a.id].fail).slice(0,40).map(w=>({...w,kind:"Difícil"}));if(!queue.length){alert("Todavía no hay fallos.");return}idx=0;show("study");loadCard()}
-function loadCard(){if(idx>=queue.length){alert("Sesión terminada.");goHome();return}current=queue[idx];scount.textContent=`${idx+1} de ${queue.length}`;sbar.style.width=`${idx/queue.length*100}%`;stype.textContent=current.kind;stype.className="badge"+(current.important?" important":"");ssource.textContent=current.source;sword.textContent=current.word.toUpperCase();answer.classList.remove("show");reveal.style.display="block"}
+function loadCard(){
+  if(idx>=queue.length){
+    showContinueOptions();
+    return;
+  }current=queue[idx];scount.textContent=`${idx+1} de ${queue.length}`;sbar.style.width=`${idx/queue.length*100}%`;stype.textContent=current.kind;stype.className="badge"+(current.important?" important":"");ssource.textContent=current.source;sword.textContent=current.word.toUpperCase();answer.classList.remove("show");reveal.style.display="block"}
 function reveal(){def.textContent=current.definitions.length?current.definitions.join(" · "):"—";syn.textContent=current.syns.length?current.syns.join(" · "):"—";ant.textContent=current.ants.length?current.ants.join(" · "):"—";answer.classList.add("show");reveal.style.display="none"}
 function rate(r){const x=state.words[current.id],now=Date.now();x.last=now;if(r==="fail"){x.fail++;x.streak=0;x.status="hard";x.next=now+DAY}else if(r==="doubt"){x.doubt++;x.status=x.fail>2?"hard":"learning";x.next=now+3*DAY}else{x.success++;x.streak++;x.status=x.streak>=4?"mastered":"learning";x.next=now+(x.streak>=4?30:x.streak===3?15:x.streak===2?7:3)*DAY}save();idx++;loadCard()}
 let tests=[],ti=0,answered=false,score=0;
