@@ -29,7 +29,7 @@ h1{font-size:26px;margin:8px 0} h2{margin:4px 0 12px} p{color:var(--muted);line-
   <div class="card">
     <span class="badge">Material de Cristian integrado</span>
     <h1>Hola, Cristian</h1>
-    <p id="homeText"></p>
+    <p id="homeText">Empieza con 12. Si quieres seguir, al terminar podrás hacer otro bloque.</p>
     <div class="stats">
       <div class="stat"><b id="due">12</b><span>sesión recomendada</span></div>
       <div class="stat"><b id="hard">0</b><span>difíciles</span></div>
@@ -138,9 +138,10 @@ function renderHome(){
   due.textContent="12";
   hard.textContent=m.hard;
   mastered.textContent=m.mastered;
-  homeText.textContent=`Tu banco incluye ${WORDS.length} palabras. Empieza con 12 en la sesión recomendada y, si quieres, continúa con más bloques.`;
+  homeText.textContent="Empieza con 12. Si quieres seguir, al terminar podrás hacer otro bloque." ;
   date.textContent=new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"short"});
-} palabras. El material que ya has estudiado tiene prioridad en los repasos.`;date.textContent=new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"short"})}
+}
+
 let queue=[],idx=0,current=null;
 function startStudyBlock(size){
   queue=buildQueue(size);
