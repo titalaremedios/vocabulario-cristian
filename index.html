@@ -44,6 +44,7 @@ h1{font-size:26px;margin:8px 0} h2{margin:4px 0 12px} p{color:var(--muted);line-
       <button class="ghost" onclick="startAnalogies()">🔗 Analogías</button>
     </div>
     <button class="ghost" onclick="showProgress()">📊 Mi progreso</button>
+    <button class="ghost" onclick="startFailedAnalogies()">🔁 Repasar analogías falladas</button>
   </div>
   <div class="footer">923 palabras totales · 692 procedentes del material de Cristian · 142 analogías.</div>
 </section>
@@ -78,16 +79,19 @@ h1{font-size:26px;margin:8px 0} h2{margin:4px 0 12px} p{color:var(--muted);line-
   </div>
 </section>
 
+
 <section id="analogies" class="screen">
   <button class="nav" onclick="goHome()">← Volver</button>
   <div class="card">
     <div class="small" id="acount"></div>
     <div class="progressbar"><div id="abar"></div></div>
-    <h2>Analogía estudiada</h2>
-    <div id="analogyText" style="font-size:20px;font-weight:800;line-height:1.45;margin:18px 0"></div>
-    <button class="primary" id="anext" onclick="nextAnalogy()">SIGUIENTE</button>
+    <h2 id="aq"></h2>
+    <div id="aopts"></div>
+    <div id="afeedback" class="small" style="margin-top:12px;font-size:14px"></div>
+    <button class="secondary" id="anext" style="display:none" onclick="nextAnalogy()">SIGUIENTE</button>
   </div>
 </section>
+
 
 <section id="progress" class="screen">
   <button class="nav" onclick="goHome()">← Volver</button>
@@ -100,6 +104,19 @@ h1{font-size:26px;margin:8px 0} h2{margin:4px 0 12px} p{color:var(--muted);line-
     </div>
   </div>
   <div class="card"><h2>Más falladas</h2><div id="hardList" class="list"></div></div>
+  <div class="card">
+    <h2>Progreso en analogías</h2>
+    <div class="stats">
+      <div class="stat"><b id="paDone">0</b><span>respondidas</span></div>
+      <div class="stat"><b id="paAccuracy">0%</b><span>aciertos</span></div>
+      <div class="stat"><b id="paMastered">0</b><span>dominadas</span></div>
+    </div>
+    <div class="stats" style="margin-top:10px">
+      <div class="stat"><b id="paHard">0</b><span>difíciles</span></div>
+      <div class="stat"><b id="paCorrect">0</b><span>correctas</span></div>
+      <div class="stat"><b id="paWrong">0</b><span>falladas</span></div>
+    </div>
+  </div>
 </section>
 
 <section id="continueStudy" class="screen">
@@ -126,9 +143,9 @@ const KEY="vocab_cristian_v3", DAY=86400000;
 function defaultState(){
   const now=Date.now(), words={};
   WORDS.forEach(w=>words[w.id]={status:"new",success:0,fail:0,doubt:0,streak:0,next:now,last:null});
-  return {words};
+  return {words,analogies:{}};
 }
-function load(){try{const x=JSON.parse(localStorage.getItem(KEY));if(x){WORDS.forEach(w=>{if(!x.words[w.id])x.words[w.id]={status:"new",success:0,fail:0,doubt:0,streak:0,next:Date.now(),last:null}});return x}}catch(e){}return defaultState()}
+function load(){try{const x=JSON.parse(localStorage.getItem(KEY));if(x){if(!x.words)x.words={};WORDS.forEach(w=>{if(!x.words[w.id])x.words[w.id]={status:"new",success:0,fail:0,doubt:0,streak:0,next:Date.now(),last:null}});if(!x.analogies)x.analogies={};return x}}catch(e){}return defaultState()}
 let state=load(); function save(){localStorage.setItem(KEY,JSON.stringify(state))}
 function sh(a){return [...a].sort(()=>Math.random()-.5)} function show(id){document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");window.scrollTo(0,0)}
 function goHome(){renderHome();show("home")}
@@ -206,11 +223,152 @@ function startTest(){tests=sh(testable()).slice(0,10).map(w=>{const types=[];if(
 function loadTest(){if(ti>=tests.length){alert(`Test terminado: ${score}/10`);goHome();return}answered=false;const t=tests[ti];tcount.textContent=`Pregunta ${ti+1} de 10`;tbar.style.width=`${ti/10*100}%`;tq.textContent=`Señala el ${t.type==="syn"?"sinónimo":"antónimo"} de ${t.w.word.toUpperCase()}`;opts.innerHTML="";t.opts.forEach(o=>{const b=document.createElement("button");b.className="opt";b.textContent=o;b.onclick=()=>answerTest(b,o);opts.appendChild(b)});next.style.display="none"}
 function answerTest(b,v){if(answered)return;answered=true;const t=tests[ti],x=state.words[t.w.id],now=Date.now();[...document.querySelectorAll(".opt")].forEach(z=>{if(z.textContent===t.correct)z.classList.add("correct")});if(v===t.correct){b.classList.add("correct");score++;x.success++;x.streak++;x.status=x.streak>=4?"mastered":"learning";x.next=now+7*DAY}else{b.classList.add("wrong");x.fail++;x.streak=0;x.status="hard";x.next=now+DAY}save();next.style.display="block"}
 function nextTest(){ti++;loadTest()}
-let ai=0,ash=[];
-function startAnalogies(){ash=sh(ANALOGIES).slice(0,20);ai=0;show("analogies");loadAnalogy()}
-function loadAnalogy(){if(ai>=ash.length){alert("Bloque de analogías terminado.");goHome();return}acount.textContent=`${ai+1} de ${ash.length}`;abar.style.width=`${ai/ash.length*100}%`;analogyText.textContent=ash[ai]}
-function nextAnalogy(){ai++;loadAnalogy()}
-function showProgress(){const m=metrics();pm.textContent=m.mastered;pl.textContent=m.learning;ph.textContent=m.hard;const arr=WORDS.map(w=>({w,r:state.words[w.id]})).filter(x=>x.r.fail>0).sort((a,b)=>b.r.fail-a.r.fail).slice(0,20);hardList.innerHTML=arr.length?"":"<div class='small'>Todavía no hay fallos.</div>";arr.forEach(x=>{const d=document.createElement("div");d.className="item";d.innerHTML=`<div><div class="name">${x.w.word.toUpperCase()}</div><div class="meta">${x.w.source}</div></div><span class="badge">${x.r.fail} fallos</span>`;hardList.appendChild(d)});show("progress")}
+const ANALOGY_ITEMS=[{"a": "BASTILLA", "b": "PRISIÓN", "c": "LOUVRE", "d": "MUSEO", "raw": "BASTILLA es a PRISIÓN como LOUVRE es a MUSEO"}, {"a": "JUSTO", "b": "ECUANIME", "c": "COLOCACIÓN", "d": "EMPLEO", "raw": "JUSTO es a ECUANIME como COLOCACIÓN es a EMPLEO"}, {"a": "AGUA", "b": "MAR", "c": "ROCA", "d": "CANTERA", "raw": "AGUA es a MAR como ROCA es a CANTERA."}, {"a": "DINERO", "b": "BANCO", "c": "FLORES", "d": "FLORISTERÍA", "raw": "DINERO es a BANCO como FLORES es a FLORISTERÍA"}, {"a": "MOLÉCULA", "b": "ATOMO", "c": "ESCALERA", "d": "NOTA", "raw": "MOLÉCULA es a ATOMO como ESCALERA es a NOTA."}, {"a": "SERRUCHO", "b": "FRICAR", "c": "CINCEL", "d": "PERCUTIR", "raw": "SERRUCHO es a FRICAR como CINCEL es a PERCUTIR"}, {"a": "OJO", "b": "PUPILA", "c": "CAMARA", "d": "DIAFRAGMA", "raw": "OJO es a PUPILA como CAMARA es a DIAFRAGMA."}, {"a": "MENOR", "b": "MÍNIMO", "c": "PEOR", "d": "PÉSIMO", "raw": "MENOR es a MÍNIMO como PEOR es a PÉSIMO"}, {"a": "CONMINAR", "b": "AMENAZAR", "c": "INOCUO", "d": "INOFENSIVO", "raw": "CONMINAR es a AMENAZAR como INOCUO es a INOFENSIVO"}, {"a": "IMBERBE", "b": "LAMPIÑO", "c": "EMPUJAR", "d": "IMPELER", "raw": "IMBERBE es a LAMPIÑO como EMPUJAR es a IMPELER"}, {"a": "MILLA", "b": "DISTANCIA", "c": "HECTÁREA", "d": "EXTENSIÓN", "raw": "MILLA es a DISTANCIA como HECTÁREA es a EXTENSIÓN"}, {"a": "DOGMA", "b": "CREENCIA", "c": "ACIAGO", "d": "FUNESTO", "raw": "DOGMA es a CREENCIA como ACIAGO es a FUNESTO"}, {"a": "PRODIGALIDAD", "b": "USURA", "c": "ORLAR", "d": "DEFORMAR (son antónimos", "raw": "PRODIGALIDAD es a USURA como ORLAR es a DEFORMAR (son antónimos)"}, {"a": "INSÓLITO", "b": "INUSITADO", "c": "INÚTIL", "d": "INEFICAZ", "raw": "INSÓLITO es a INUSITADO como INÚTIL es a INEFICAZ"}, {"a": "LIBRO", "b": "BIBLIOTECA", "c": "DIARIA", "d": "HEMEROTECA", "raw": "LIBRO es a BIBLIOTECA como DIARIA es a HEMEROTECA"}, {"a": "UNO", "b": "VARIOS", "c": "MONÓLOGO", "d": "DIÁLOGO", "raw": "UNO es a VARIOS como MONÓLOGO es a DIÁLOGO"}, {"a": "INESCRUTABLE", "b": "CLARO", "c": "INDOLENCIA", "d": "ACTIVIDAD", "raw": "INESCRUTABLE es a CLARO como INDOLENCIA es a ACTIVIDAD"}, {"a": "SENCILLO", "b": "POMPOSO", "c": "SENSATO", "d": "NECIO", "raw": "SENCILLO es a POMPOSO como SENSATO es a NECIO"}, {"a": "BASTILLA", "b": "PRISIÓN", "c": "LOUVRE", "d": "MUSEO (bastilla era una prisión francesa del siglo XVII y XVIII", "raw": "BASTILLA es a PRISIÓN como LOUVRE es a MUSEO (bastilla era una prisión francesa del siglo XVII y XVIII)"}, {"a": "CUADRADO", "b": "CÍRCULO", "c": "CUBO", "d": "ESFERA", "raw": "CUADRADO es a CÍRCULO como CUBO es a ESFERA."}, {"a": "CUADRO", "b": "PINCEL", "c": "PARED", "d": "BROCHA", "raw": "CUADRO es a PINCEL, como PARED es a BROCHA"}, {"a": "PIERNA", "b": "RODILLA", "c": "BRAZO", "d": "CODO", "raw": "PIERNA es a RODILLA como BRAZO es a CODO"}, {"a": "QUNTILLA", "b": "CINCO", "c": "SONETO", "d": "CATORCE", "raw": "QUNTILLA es a CINCO como SONETO es a CATORCE"}, {"a": "CONTINENTE", "b": "CONTENIDO", "c": "RECIPIENTE", "d": "LIQUIDO", "raw": "CONTINENTE es a CONTENIDO como RECIPIENTE es a LIQUIDO"}, {"a": "PARTE", "b": "TODO", "c": "SIMPLE", "d": "COMPLEJO", "raw": "PARTE es a TODO como SIMPLE es a COMPLEJO."}, {"a": "ARCILLA", "b": "LADRILLO", "c": "CALIZA", "d": "CEMENTO", "raw": "ARCILLA es a LADRILLO como CALIZA es a CEMENTO."}, {"a": "UMBRAL", "b": "INFERIOR", "c": "DINTEL", "d": "SUPERIOR", "raw": "UMBRAL es a INFERIOR como DINTEL es a SUPERIOR."}, {"a": "ORBE", "b": "MUNDO", "c": "TERCIAR", "d": "MEDIAR", "raw": "ORBE es a MUNDO como TERCIAR es a MEDIAR"}, {"a": "BARCO", "b": "VERGEL", "c": "BAJEL", "d": "HUERTO", "raw": "BARCO es a VERGEL como BAJEL es a HUERTO"}, {"a": "LODO", "b": "MODELO", "c": "TEMO", "d": "TOMATE (la primera sílaba da la primera palabra es la última sílaba de la segunda palabra", "raw": "LODO es a MODELO como TEMO es a TOMATE (la primera sílaba da la primera palabra es la última sílaba de la segunda palabra)"}, {"a": "PARAGUAS", "b": "LLUVIA", "c": "DIQUE", "d": "INUNDACIÓN", "raw": "PARAGUAS es a LLUVIA como DIQUE es a INUNDACIÓN"}, {"a": "LIBRETO", "b": "OPERA", "c": "LETRA", "d": "CANCIÓN", "raw": "LIBRETO es a OPERA como LETRA es a CANCIÓN"}, {"a": "DERRIBO", "b": "EDIFICIO", "c": "DESGUACE", "d": "EMBARCACIÓN", "raw": "DERRIBO es a EDIFICIO como DESGUACE es a EMBARCACIÓN"}, {"a": "LACÓNICO", "b": "SUCINTO", "c": "DELGADO", "d": "MAGRO", "raw": "LACÓNICO es a SUCINTO como DELGADO es a MAGRO"}, {"a": "MESA", "b": "ESCRITORIO", "c": "TINTERO", "d": "PLUMA", "raw": "MESA es a ESCRITORIO como TINTERO es a PLUMA"}, {"a": "CUPIDO", "b": "AMOR", "c": "MARTE", "d": "GUERRA", "raw": "CUPIDO es a AMOR como MARTE es a GUERRA"}, {"a": "PERCUTIR", "b": "TAMBOR", "c": "REPICAR", "d": "CAMPANA", "raw": "PERCUTIR es a TAMBOR como REPICAR es a CAMPANA"}, {"a": "ESPARCIR", "b": "DISEMINAR", "c": "ASUSTAR", "d": "ASOMBRAR", "raw": "ESPARCIR es a DISEMINAR como ASUSTAR es ASOMBRAR"}, {"a": "EXCAVAR", "b": "CAVIDAD", "c": "ALINEAR", "d": "ACODO", "raw": "EXCAVAR es a CAVIDAD como ALINEAR es a ACODO"}, {"a": "RAQUETA", "b": "TENIS", "c": "ESTOQUE", "d": "ESGRIMA", "raw": "RAQUETA es a TENIS como ESTOQUE es a ESGRIMA"}, {"a": "PEINE", "b": "PELO", "c": "ESTROPAJO", "d": "LOZA", "raw": "PEINE es a PELO como ESTROPAJO es a LOZA"}, {"a": "OVEJA", "b": "MAJADA", "c": "ABEJA", "d": "ENJAMBRE", "raw": "OVEJA es a MAJADA como ABEJA es a ENJAMBRE"}, {"a": "FINO", "b": "GRUESO", "c": "EXIGUO", "d": "COPIOSO (antónimos", "raw": "FINO es a GRUESO como EXIGUO es a COPIOSO (antónimos)"}, {"a": "ETICO", "b": "ESTÉTICO", "c": "MORAL", "d": "BELLO", "raw": "ETICO es a ESTÉTICO como MORAL es a BELLO"}, {"a": "BISAGRA", "b": "VENTANTA", "c": "GOZNE", "d": "PUERTA", "raw": "BISAGRA es a VENTANTA como GOZNE es a PUERTA"}, {"a": "YERNO", "b": "ESTERIL", "c": "BOSQUEJO", "d": "ESBOZO", "raw": "YERNO es a ESTERIL como BOSQUEJO es a ESBOZO"}, {"a": "BANDERA", "b": "PENDÓN", "c": "ESCUDO", "d": "BLASÓN", "raw": "BANDERA es a PENDÓN como ESCUDO es a BLASÓN"}, {"a": "CUEVA", "b": "GALERÍA", "c": "CASA", "d": "PASILLO", "raw": "CUEVA es a GALERÍA como CASA es a PASILLO"}, {"a": "GATO", "b": "COCHE", "c": "BUEY", "d": "BARCO", "raw": "GATO es a COCHE como BUEY es a BARCO"}, {"a": "IMPULSIVO", "b": "PROCEDENTE", "c": "IMPETUOSO", "d": "PERTINENTE", "raw": "IMPULSIVO es a PROCEDENTE como IMPETUOSO es a PERTINENTE"}, {"a": "DANTESTO", "b": "TREMENDO", "c": "MAGNÁNIMO", "d": "ALTRUISTA", "raw": "DANTESTO es a TREMENDO como MAGNÁNIMO es a ALTRUISTA"}, {"a": "JUSTO", "b": "ECUÁNIME", "c": "COLOCACIÓN", "d": "EMPLEO", "raw": "JUSTO es a ECUÁNIME como COLOCACIÓN es a EMPLEO"}, {"a": "MEZQUINO –", "b": "GENEROSO", "c": "DESMEDIDO", "d": "MODERADO", "raw": "MEZQUINO – es a GENEROSO como DESMEDIDO es a MODERADO."}, {"a": "ABATIR", "b": "NEGAR", "c": "ENSALZAR", "d": "HUMILLAR", "raw": "ABATIR es a NEGAR como ENSALZAR es a HUMILLAR-"}, {"a": "COMPLETO", "b": "REPLETO", "c": "COMPRENDER", "d": "CONTENER", "raw": "COMPLETO es a REPLETO como COMPRENDER es a CONTENER"}, {"a": "LIBRETO", "b": "OPERA", "c": "LETRA", "d": "CANCIÓN", "raw": "LIBRETO es a OPERA como LETRA es a CANCIÓN"}, {"a": "AÑEJO", "b": "VINO", "c": "CANO", "d": "PELO", "raw": "AÑEJO es a VINO como CANO es a PELO"}, {"a": "INERTE", "b": "ESTÁTICO", "c": "ACTIVO", "d": "DINÁMICO", "raw": "INERTE es a ESTÁTICO como ACTIVO es a DINÁMICO"}, {"a": "CUADRADO", "b": "ROMBO", "c": "CÍRCULO", "d": "OVALO", "raw": "CUADRADO es a ROMBO como CÍRCULO es a OVALO"}, {"a": "NARIZ", "b": "OLOR", "c": "OÍDO", "d": "SONIDO", "raw": "NARIZ es a OLOR como OÍDO es a SONIDO"}, {"a": "LLANTO", "b": "SOLLOZO", "c": "RISA", "d": "SONRISA", "raw": "LLANTO es a SOLLOZO como RISA es a SONRISA"}, {"a": "CURSADO", "b": "AVEZADO", "c": "ENCONAR", "d": "IRRITAR", "raw": "CURSADO es a AVEZADO como ENCONAR es a IRRITAR"}, {"a": "FURIBUNDO", "b": "COLÉRICO", "c": "LEDO", "d": "ALEGRE (Muy habitual", "raw": "FURIBUNDO es a COLÉRICO como LEDO es a ALEGRE (Muy habitual)"}, {"a": "INFANTERÍA", "b": "TIERRA", "c": "ARMADA", "d": "MAR", "raw": "INFANTERÍA es a TIERRA como ARMADA es a MAR."}, {"a": "AGUJA", "b": "COSER", "c": "CINCEL", "d": "PERFORAR", "raw": "AGUJA es a COSER como CINCEL es a PERFORAR"}, {"a": "TENAZAS", "b": "ASIR", "c": "GATO", "d": "ELEVAR", "raw": "TENAZAS es a ASIR como GATO es a ELEVAR."}, {"a": "LAICO", "b": "SEGLAR", "c": "ILESO", "d": "INCÓLUME", "raw": "LAICO es a SEGLAR como ILESO es a INCÓLUME"}, {"a": "ANTOJO", "b": "CAPRICHO", "c": "a ADEREZO", "d": "ATAVÍO (condimento, salsa", "raw": "ANTOJO es a CAPRICHO como a ADEREZO es a ATAVÍO (condimento, salsa)"}, {"a": "BUSCAR", "b": "ENCONTRAR", "c": "PROCURAR", "d": "CONSEGUIR", "raw": "BUSCAR es a ENCONTRAR como PROCURAR es a CONSEGUIR"}, {"a": "BÁCULO", "b": "APOYO", "c": "CANDADO", "d": "SEGURIDAD", "raw": "BÁCULO es a APOYO como CANDADO es a SEGURIDAD"}, {"a": "JUEZ", "b": "TRIBUNAL", "c": "ACTOR", "d": "ESCENARIO", "raw": "JUEZ es a TRIBUNAL como ACTOR es a ESCENARIO"}, {"a": "PRÓLOGO", "b": "LIBRO", "c": "OBERTURA", "d": "ÓPERA", "raw": "PRÓLOGO es a LIBRO como OBERTURA es a ÓPERA"}, {"a": "PERSPICACIA", "b": "ENIGMA", "c": "DESTREZA", "d": "OBSTÁCULO", "raw": "PERSPICACIA es a ENIGMA como DESTREZA es a OBSTÁCULO."}, {"a": "REBUSCAR", "b": "ENCONTRAR", "c": "ESTUDIAR", "d": "APRENDER", "raw": "REBUSCAR es a ENCONTRAR como ESTUDIAR es a APRENDER."}, {"a": "ALTO", "b": "CIMA", "c": "BAJO", "d": "SIMA", "raw": "ALTO es a CIMA como BAJO es a SIMA"}, {"a": "CIMA", "b": "MONTAÑA", "c": "CÚPULA", "d": "CATEDRAL", "raw": "CIMA es a MONTAÑA como CÚPULA es a CATEDRAL."}, {"a": "BOMBERO", "b": "INCENDIO", "c": "SALVAVIDAS", "d": "NAUFRAGIO", "raw": "BOMBERO es a INCENDIO como SALVAVIDAS es a NAUFRAGIO."}, {"a": "FÉTIDO", "b": "HEDIONDO", "c": "OLOROSO", "d": "PERFUMADO", "raw": "FÉTIDO es a HEDIONDO como OLOROSO es a PERFUMADO."}, {"a": "LIBRO", "b": "BIBLIOTECA", "c": "DIARIO", "d": "HEMEROTECA", "raw": "LIBRO es a BIBLIOTECA como DIARIO es a HEMEROTECA"}, {"a": "TRAIDOR", "b": "OSADO", "c": "DESLEAL", "d": "ATREVIDO", "raw": "TRAIDOR es a OSADO como DESLEAL es a ATREVIDO"}, {"a": "FURIBUNDO", "b": "COLÉRICO", "c": "LEDO", "d": "ALEGRE", "raw": "FURIBUNDO es a COLÉRICO como LEDO es a ALEGRE"}, {"a": "EXCAVAR", "b": "CAVIDAD", "c": "ALINEAR", "d": "ENSAMBLAR", "raw": "EXCAVAR es a CAVIDAD como ALINEAR es a ENSAMBLAR"}, {"a": "SABOR", "b": "LENGUA", "c": "TEMPERATURA", "d": "PIEL", "raw": "SABOR es a LENGUA como TEMPERATURA es a PIEL"}, {"a": "MIEDO", "b": "TERROR", "c": "OLA", "d": "TSUNAMI", "raw": "MIEDO es a TERROR como OLA es a TSUNAMI"}, {"a": "CÉNTIMO", "b": "EURO", "c": "METRO", "d": "HECTÓMETRO", "raw": "CÉNTIMO es a EURO como METRO es a HECTÓMETRO"}, {"a": "UVAS", "b": "VID", "c": "NOGAL", "d": "NUEZ", "raw": "UVAS es a VID como NOGAL es a NUEZ"}, {"a": "CRISTAL", "b": "BOTELLA", "c": "MESA", "d": "MADERA", "raw": "CRISTAL es a BOTELLA como MESA es a MADERA"}, {"a": "NIÑO", "b": "INFANCIA", "c": "SENECTUD", "d": "VEJEZ", "raw": "NIÑO es a INFANCIA como SENECTUD es a VEJEZ"}, {"a": "LEGUMBRE", "b": "JUDÍA", "c": "ARROZ", "d": "CEREAL", "raw": "LEGUMBRE es a JUDÍA como ARROZ es a CEREAL"}, {"a": "GRANO", "b": "ESPIGA", "c": "MIEL", "d": "PANAL", "raw": "GRANO es a ESPIGA como MIEL es a PANAL"}, {"a": "FILATÉLICO", "b": "SELLOS", "c": "NUMISMÁTICO", "d": "MONEDAS", "raw": "FILATÉLICO es a SELLOS como NUMISMÁTICO es a MONEDAS"}, {"a": "BANDERA", "b": "PENDÓN", "c": "ESCUDO", "d": "BLASÓN (son sinónimos", "raw": "BANDERA es a PENDÓN como ESCUDO es a BLASÓN (son sinónimos)"}, {"a": "MIÑO", "b": "LUGO", "c": "EBRO", "d": "ZARAGOZA", "raw": "MIÑO es a LUGO como EBRO es a ZARAGOZA"}, {"a": "DON QUIJOTE", "b": "CERVANTES", "c": "LA CELESTINA", "d": "ROJAS", "raw": "DON QUIJOTE es a CERVANTES como LA CELESTINA es a ROJAS"}, {"a": "MONT BLANC", "b": "LOS ALPES", "c": "ACONCAGUA", "d": "ANDES", "raw": "MONT BLANC es a LOS ALPES como ACONCAGUA es a ANDES"}, {"a": "HIPÓFISIS", "b": "PITUITARIA", "c": "INSULINA", "d": "PANCREAS", "raw": "HIPÓFISIS es a PITUITARIA como INSULINA es a PANCREAS"}, {"a": "LONGITUD", "b": "METRO", "c": "TIEMPO", "d": "SEGUNDO (IMPORTANTE", "raw": "LONGITUD es a METRO como TIEMPO es a SEGUNDO (IMPORTANTE)"}, {"a": "TRABAJO", "b": "JULIO", "c": "POTENCIA", "d": "WATIO", "raw": "TRABAJO es a JULIO como POTENCIA es a WATIO"}, {"a": "NORTE", "b": "ESTRELLA POLAR", "c": "SUR", "d": "CRUZ DEL SUR", "raw": "NORTE es a ESTRELLA POLAR como SUR es a CRUZ DEL SUR"}, {"a": "INSULINA", "b": "DIABETES", "c": "DOPAMINA", "d": "PARKINSON", "raw": "INSULINA es a DIABETES como DOPAMINA es a PARKINSON"}, {"a": "REAL", "b": "FIGURADO", "c": "FIJO", "d": "INTERINO", "raw": "REAL es a FIGURADO como FIJO es a INTERINO"}, {"a": "PISTOLA", "b": "FUNDA", "c": "ESPADA", "d": "VAINA", "raw": "PISTOLA es a FUNDA como ESPADA es a VAINA"}, {"a": "COLOR", "b": "CAMALEÓN", "c": "TINTA", "d": "PULPO", "raw": "COLOR es a CAMALEÓN como TINTA es a PULPO"}, {"a": "BAQUELITA", "b": "AISLANTE", "c": "COBRE", "d": "CONDUCTOR", "raw": "BAQUELITA es a AISLANTE como COBRE es a CONDUCTOR"}, {"a": "CONTINENTE", "b": "CONTENIDO", "c": "RECIPIENTE", "d": "LÍQUIDO", "raw": "CONTINENTE es  a CONTENIDO como RECIPIENTE es a LÍQUIDO"}, {"a": "PARTE", "b": "TODO", "c": "SIMPLE", "d": "COMPLEJO (antónimos", "raw": "PARTE es a TODO como SIMPLE es a COMPLEJO (antónimos)"}, {"a": "ARCILLO", "b": "LADRILLO", "c": "CALIZA", "d": "CEMENTO", "raw": "ARCILLO es a LADRILLO como CALIZA es a CEMENTO"}, {"a": "UMBRAL", "b": "INFERIOR", "c": "DINTEL", "d": "SUPERIOR", "raw": "UMBRAL es a INFERIOR como DINTEL es a SUPERIOR"}, {"a": "ESLABÓN", "b": "CADENA", "c": "CUENTA", "d": "COLLAR", "raw": "ESLABÓN es a CADENA como CUENTA es a COLLAR"}, {"a": "DENOSTAR", "b": "CRITITAR", "c": "LATENTE", "d": "OCULTO (sinónimos", "raw": "DENOSTAR es a CRITITAR como LATENTE es a OCULTO (sinónimos)"}, {"a": "ARAÑA", "b": "TELARAÑA", "c": "GUSANO", "d": "SEDA", "raw": "ARAÑA es a TELARAÑA como GUSANO es a SEDA"}, {"a": "ORBE", "b": "MUNDO", "c": "TERCIAR", "d": "MEDIAR", "raw": "ORBE es a MUNDO como TERCIAR es a MEDIAR"}, {"a": "BARCO", "b": "VERGEL", "c": "BAJEL", "d": "HUERTO (sinónimos contrarios", "raw": "BARCO es a VERGEL como BAJEL es a HUERTO (sinónimos contrarios)"}, {"a": "PRODIGALIDAD", "b": "USURA", "c": "ORLAR", "d": "DEFORMAR (antónimos", "raw": "PRODIGALIDAD es a USURA como ORLAR es a DEFORMAR (antónimos)"}, {"a": "MEZQUINO", "b": "GENEROSO", "c": "DESMEDIDO", "d": "MODERADO (antónimos", "raw": "MEZQUINO es a GENEROSO como DESMEDIDO es a MODERADO (antónimos)"}, {"a": "OPERA", "b": "SOPRANO", "c": "TEATRO", "d": "ACTRIZ", "raw": "OPERA es a SOPRANO como TEATRO es a ACTRIZ"}, {"a": "FASE", "b": "PERÍODO", "c": "EBURNEO", "d": "CLARO", "raw": "FASE es a PERÍODO como EBURNEO es a CLARO"}, {"a": "ALFILER", "b": "CORBATA", "c": "GRAPA", "d": "PAPEL", "raw": "ALFILER es a CORBATA como GRAPA es a PAPEL"}, {"a": "SEGUNDO", "b": "TIEMPO", "c": "GRADO", "d": "ÁNGULO", "raw": "SEGUNDO es a TIEMPO como GRADO es a ÁNGULO"}, {"a": "LIBRO", "b": "BIBLIOTECA", "c": "DIARIO", "d": "HEMEROTECA", "raw": "LIBRO es a BIBLIOTECA como DIARIO es a HEMEROTECA"}, {"a": "UNO", "b": "VARIOS", "c": "MONÓLOGO", "d": "DIÁLOGO", "raw": "UNO es a VARIOS como MONÓLOGO es a DIÁLOGO"}, {"a": "INESCRUTABLE", "b": "CLARO", "c": "INDOLENCIA", "d": "ACTIVIDAD", "raw": "INESCRUTABLE es a CLARO como INDOLENCIA es a ACTIVIDAD"}, {"a": "DINERO", "b": "BANCO", "c": "FLOR", "d": "FLORISTERÍA", "raw": "DINERO es a BANCO como FLOR es a FLORISTERÍA"}, {"a": "MOLÉCULA", "b": "ÁTOMO", "c": "ESCALERA", "d": "NOTA", "raw": "MOLÉCULA es a ÁTOMO como ESCALERA es a NOTA"}, {"a": "BASTILLA (era una prisión", "b": "PRISIÓN", "c": "LOUVRE", "d": "MUSEO", "raw": "BASTILLA (era una prisión) es a PRISIÓN como LOUVRE es a MUSEO"}, {"a": "TOSTADORA", "b": "PAN", "c": "BARBACOA", "d": "CARNE", "raw": "TOSTADORA es a PAN como BARBACOA es a CARNE"}, {"a": "MISIL", "b": "AIRE", "c": "TORPEDO", "d": "AGUA", "raw": "MISIL es a AIRE como TORPEDO es a AGUA"}, {"a": "ARENA", "b": "PLAYA", "c": "CERDO", "d": "PIARA", "raw": "ARENA es a PLAYA como CERDO es a PIARA"}, {"a": "FIRMEZA", "b": "VACILACIÓN", "c": "DECIDIDO", "d": "TITUBEANTE", "raw": "FIRMEZA es a VACILACIÓN como DECIDIDO es a TITUBEANTE"}, {"a": "DIRECTO", "b": "INDIRECTO", "c": "INDECISO", "d": "RESUELTO", "raw": "DIRECTO es a INDIRECTO como INDECISO es a RESUELTO"}, {"a": "SIMPÁTICO", "b": "CORTÉS", "c": "ACIAGO", "d": "INFELIZ", "raw": "SIMPÁTICO es a CORTÉS como ACIAGO es a INFELIZ"}, {"a": "CARESTÍA", "b": "PENURIA", "c": "COPIOSO", "d": "ABUNDANTE (son sinónimos", "raw": "CARESTÍA es a PENURIA como COPIOSO es a ABUNDANTE (son sinónimos)"}, {"a": "JUSTO", "b": "ECUÁNIME", "c": "COLOCACIÓN", "d": "EMPLEO (sinónimos", "raw": "JUSTO es a ECUÁNIME como COLOCACIÓN es a EMPLEO (sinónimos)"}, {"a": "IMPULSIVO", "b": "PROCEDENTE", "c": "IMPETUOSO", "d": "PERTINENTE (sinónimos", "raw": "IMPULSIVO es a PROCEDENTE como IMPETUOSO es a PERTINENTE (sinónimos)"}, {"a": "DANTESCO", "b": "TREMENDO", "c": "MAGNÁNIMO", "d": "ALTRUISTA (sinónimos", "raw": "DANTESCO es a TREMENDO como MAGNÁNIMO es a ALTRUISTA (sinónimos)"}];
+let ai=0,ash=[],aAnswered=false,aScore=0;
+
+function ensureAnalogyState(){
+  if(!state.analogies)state.analogies={};
+  ANALOGY_ITEMS.forEach((a,i)=>{
+    if(!state.analogies[i])state.analogies[i]={status:"new",attempts:0,correct:0,wrong:0,streak:0,last:null};
+  });
+}
+
+function buildAnalogyDistractors(correct){
+  const pool=[...new Set(ANALOGY_ITEMS.map(x=>x.d).filter(Boolean))]
+    .filter(x=>x.toLowerCase()!==correct.toLowerCase());
+  return sh(pool).slice(0,3);
+}
+
+function analogyPool(){
+  ensureAnalogyState();
+  const indexed=ANALOGY_ITEMS.map((x,i)=>({...x,_idx:i,_r:state.analogies[i]}));
+  const hard=indexed.filter(x=>x._r.status==="hard").sort((a,b)=>b._r.wrong-a._r.wrong);
+  const learning=sh(indexed.filter(x=>x._r.status==="learning"));
+  const fresh=sh(indexed.filter(x=>x._r.status==="new"));
+  const mastered=sh(indexed.filter(x=>x._r.status==="mastered"));
+  return [...hard,...learning,...fresh,...mastered];
+}
+
+function startAnalogies(){
+  ash=analogyPool().slice(0,20).map(x=>({...x,opts:sh([x.d,...buildAnalogyDistractors(x.d)])}));
+  ai=0;aScore=0;show("analogies");loadAnalogy();
+}
+
+function startFailedAnalogies(){
+  ensureAnalogyState();
+  const failed=ANALOGY_ITEMS
+    .map((x,i)=>({...x,_idx:i,_r:state.analogies[i]}))
+    .filter(x=>x._r.wrong>0)
+    .sort((a,b)=>b._r.wrong-a._r.wrong);
+  if(!failed.length){alert("Todavía no hay analogías falladas.");return;}
+  ash=failed.slice(0,20).map(x=>({...x,opts:sh([x.d,...buildAnalogyDistractors(x.d)])}));
+  ai=0;aScore=0;show("analogies");loadAnalogy();
+}
+
+function loadAnalogy(){
+  if(ai>=ash.length){
+    alert(`Analogías terminadas: ${aScore}/${ash.length}`);
+    goHome();return;
+  }
+  aAnswered=false;
+  const x=ash[ai];
+  acount.textContent=`Pregunta ${ai+1} de ${ash.length}`;
+  abar.style.width=`${ai/ash.length*100}%`;
+  aq.textContent=`${x.a} es a ${x.b} como ${x.c} es a…`;
+  aopts.innerHTML="";
+  afeedback.textContent="";
+  x.opts.forEach(o=>{
+    const b=document.createElement("button");
+    b.className="opt";
+    b.textContent=o;
+    b.onclick=()=>answerAnalogy(b,o);
+    aopts.appendChild(b);
+  });
+  anext.style.display="none";
+}
+
+function answerAnalogy(btn,value){
+  if(aAnswered)return;
+  aAnswered=true;
+  const x=ash[ai];
+  ensureAnalogyState();
+  const r=state.analogies[x._idx];
+  r.attempts++;
+  r.last=Date.now();
+
+  [...aopts.querySelectorAll(".opt")].forEach(b=>{
+    if(b.textContent===x.d)b.classList.add("correct");
+  });
+
+  if(value===x.d){
+    btn.classList.add("correct");
+    afeedback.textContent="✅ Correcto";
+    aScore++;
+    r.correct++;
+    r.streak++;
+    r.status=r.streak>=3?"mastered":"learning";
+  } else {
+    btn.classList.add("wrong");
+    afeedback.textContent=`❌ La respuesta correcta es: ${x.d}`;
+    r.wrong++;
+    r.streak=0;
+    r.status="hard";
+  }
+  save();
+  anext.style.display="block";
+}
+
+function nextAnalogy(){
+  ai++;
+  loadAnalogy();
+}
+
+function analogyMetrics(){
+  ensureAnalogyState();
+  const vals=Object.values(state.analogies);
+  const answered=vals.filter(x=>x.attempts>0);
+  const correct=vals.reduce((s,x)=>s+x.correct,0);
+  const wrong=vals.reduce((s,x)=>s+x.wrong,0);
+  const total=correct+wrong;
+  return {
+    answered:answered.length,
+    correct,
+    wrong,
+    accuracy:total?Math.round(correct/total*100):0,
+    mastered:vals.filter(x=>x.status==="mastered").length,
+    hard:vals.filter(x=>x.status==="hard").length
+  };
+}
+
+function showProgress(){
+  const m=metrics();
+  pm.textContent=m.mastered;
+  pl.textContent=m.learning;
+  ph.textContent=m.hard;
+
+  const arr=WORDS.map(w=>({w,r:state.words[w.id]}))
+    .filter(x=>x.r.fail>0)
+    .sort((a,b)=>b.r.fail-a.r.fail)
+    .slice(0,20);
+
+  hardList.innerHTML=arr.length?"":"<div class='small'>Todavía no hay fallos.</div>";
+  arr.forEach(x=>{
+    const d=document.createElement("div");
+    d.className="item";
+    d.innerHTML=`<div><div class="name">${x.w.word.toUpperCase()}</div><div class="meta">${x.w.source}</div></div><span class="badge">${x.r.fail} fallos</span>`;
+    hardList.appendChild(d);
+  });
+
+  const am=analogyMetrics();
+  paDone.textContent=am.answered;
+  paAccuracy.textContent=am.accuracy+"%";
+  paMastered.textContent=am.mastered;
+  paHard.textContent=am.hard;
+  paCorrect.textContent=am.correct;
+  paWrong.textContent=am.wrong;
+
+  show("progress");
+}
 renderHome();
 </script>
 </body>

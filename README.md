@@ -1,6 +1,10 @@
-# Vocabulario Policía Madrid — Cristian v6
+# Vocabulario Policía Madrid — Cristian v8
 
-Corrección crítica:
-- Reparado el JavaScript que impedía abrir Estudiar hoy, Test, Analogías y Mi progreso.
-- Verificada la sintaxis completa con Node antes de entregar.
-- Se mantiene sesión recomendada de 12 y continuación por bloques de 12, 25 o 50.
+Analogías con progreso:
+- Guarda intentos, aciertos y fallos.
+- Calcula porcentaje global.
+- 3 aciertos seguidos = dominada.
+- Un fallo = difícil.
+- Prioriza difíciles.
+- Botón “Repasar analogías falladas”.
+- Mi progreso muestra respondidas, aciertos %, dominadas, difíciles, correctas y falladas.
