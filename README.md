@@ -1,10 +1,9 @@
-# Vocabulario Policía Madrid — Cristian v8
+# Vocabulario Policía Madrid — Curso Intensivo Julio 2026
 
-Analogías con progreso:
-- Guarda intentos, aciertos y fallos.
-- Calcula porcentaje global.
-- 3 aciertos seguidos = dominada.
-- Un fallo = difícil.
-- Prioriza difíciles.
-- Botón “Repasar analogías falladas”.
-- Mi progreso muestra respondidas, aciertos %, dominadas, difíciles, correctas y falladas.
+Banco activo sustituido por el material del curso intensivo.
+
+- 134 palabras únicas (sinónimos, antónimos y definiciones fusionados por término)
+- 56 analogías únicas
+- 12 palabras por sesión recomendada
+- progreso de este banco separado del banco anterior
+- banco anterior conservado aparte como copia de seguridad
